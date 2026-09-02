@@ -1,0 +1,32 @@
+services:
+  server:
+    build: .
+    command: python server.py
+    ports:
+      - "8080:8080"
+    networks:
+      - fl-network
+
+  client1:
+    build: .
+    command: python client.py --client-id 1
+    depends_on:
+      - server
+    environment:
+      - FL_SERVER_ADDRESS=server:8080
+    networks:
+      - fl-network
+
+  client2:
+    build: .
+    command: python client.py --client-id 2
+    depends_on:
+      - server
+    environment:
+      - FL_SERVER_ADDRESS=server:8080
+    networks:
+      - fl-network
+
+networks:
+  fl-network:
+    driver: bridge
