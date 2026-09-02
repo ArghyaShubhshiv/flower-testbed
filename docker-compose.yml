@@ -6,6 +6,10 @@ services:
     command: python server.py
     ports:
       - "8080:8080"
+    volumes:
+      - ./certificates/ca.crt:/app/certificates/ca.crt:ro
+      - ./certificates/server.pem:/app/certificates/server.pem:ro
+      - ./certificates/server.key:/app/certificates/server.key:ro
     networks:
       - fl-network
 
@@ -18,6 +22,8 @@ services:
       - server
     environment:
       - FL_SERVER_ADDRESS=server:8080
+    volumes:
+      - ./certificates/ca.crt:/app/certificates/ca.crt:ro
     networks:
       - fl-network
 
@@ -30,6 +36,8 @@ services:
       - server
     environment:
       - FL_SERVER_ADDRESS=server:8080
+    volumes:
+      - ./certificates/ca.crt:/app/certificates/ca.crt:ro
     networks:
       - fl-network
 

@@ -59,11 +59,14 @@ def main():
 
     # Determine server address: use environment variable if set, otherwise default
     server_address = os.environ.get("FL_SERVER_ADDRESS", "server:8080")
+    root_certificates = Path("certificates/ca.crt").read_bytes()
+
 
     # Start Flower client (using the deprecated API for now – it works)
     fl.client.start_numpy_client(
         server_address=server_address,
         client=SklearnClient(model, X_train, y_train, X_test, y_test),
+        root_certificates=root_certificates,
         grpc_max_message_length=1024*1024*1024
     )
 
