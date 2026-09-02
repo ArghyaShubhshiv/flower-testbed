@@ -1,6 +1,8 @@
 services:
   server:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.server
     command: python server.py
     ports:
       - "8080:8080"
@@ -8,7 +10,9 @@ services:
       - fl-network
 
   client1:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.client
     command: python client.py --client-id 1
     depends_on:
       - server
@@ -18,7 +22,9 @@ services:
       - fl-network
 
   client2:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.client
     command: python client.py --client-id 2
     depends_on:
       - server
