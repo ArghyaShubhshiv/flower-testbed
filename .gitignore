@@ -1,0 +1,4 @@
+
+#Certs
+certificates/*.key
+certificates/*.srl
