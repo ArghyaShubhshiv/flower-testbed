@@ -1,14 +1,18 @@
 ### INSTRUCTIONS
 
 Run once:
+
 ```
+#certificates
 chmod +x certificates/generate.sh
 ./certificates/generate.sh
+
+#create client shards
+python3 prepare_data.py
 
 docker-compose build
 ```
 
 Then continue with normal `docker-compose up` work
 
-(Need to add public ip for letting extnl machines access, unpar copy ca.crt files and set docker address to public ip
 

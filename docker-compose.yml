@@ -24,6 +24,7 @@ services:
       - FL_SERVER_ADDRESS=server:8080
     volumes:
       - ./certificates/ca.crt:/app/certificates/ca.crt:ro
+      - ./data/client1:/app/data:ro
     networks:
       - fl-network
 
@@ -38,6 +39,7 @@ services:
       - FL_SERVER_ADDRESS=server:8080
     volumes:
       - ./certificates/ca.crt:/app/certificates/ca.crt:ro
+      - ./data/client2:/app/data:ro
     networks:
       - fl-network
 

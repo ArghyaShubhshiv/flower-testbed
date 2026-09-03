@@ -48,13 +48,9 @@ class SklearnClient(fl.client.NumPyClient):
         return float(mse), len(self.X_test), {"mse": mse}
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--client-id", type=int, required=True, help="Client ID (1,2,...)")
-    args = parser.parse_args()
 
     # Load data for this client
     X_train, y_train, X_test, y_test = load_data(args.client_id, num_clients=2)
-
     model = LinearRegression()
 
     # Determine server address: use environment variable if set, otherwise default
