@@ -1,70 +1,119 @@
 import argparse
-import warnings
 import os
-import numpy as np
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error
+from pathlib import Path
+
 import flwr as fl
+import numpy as np
+
 from data_utils import load_data
 
-warnings.filterwarnings("ignore")
 
-class SklearnClient(fl.client.NumPyClient):
+class LinearRegressionModel:
+    """Simple linear regression with explicit NumPy parameters.
+
+    Keeping weights outside a sklearn estimator makes federated parameter
+    exchange deterministic: Flower sends/receives exactly these arrays.
+    """
+
+    def __init__(self, n_features: int):
+        self.weights = np.zeros(n_features, dtype=np.float64)
+        self.bias = np.array([0.0], dtype=np.float64)
+
+    def get_parameters(self):
+        return [self.weights.copy(), self.bias.copy()]
+
+    def set_parameters(self, parameters):
+        weights, bias = parameters
+        self.weights = np.asarray(weights, dtype=np.float64).reshape(-1).copy()
+        self.bias = np.asarray(bias, dtype=np.float64).reshape(1).copy()
+
+    def predict(self, X):
+        return X @ self.weights + self.bias[0]
+
+    def fit(self, X, y, epochs=25, learning_rate=0.01):
+        X = np.asarray(X, dtype=np.float64)
+        y = np.asarray(y, dtype=np.float64).reshape(-1)
+
+        n = len(X)
+        if n == 0:
+            return
+
+        for _ in range(epochs):
+            pred = self.predict(X)
+            error = pred - y
+            grad_w = (X.T @ error) / n
+            grad_b = np.mean(error)
+
+            self.weights -= learning_rate * grad_w
+            self.bias[0] -= learning_rate * grad_b
+
+    def mse(self, X, y):
+        error = self.predict(X) - np.asarray(y, dtype=np.float64).reshape(-1)
+        return float(np.mean(error ** 2))
+
+
+class FlowerClient(fl.client.NumPyClient):
     def __init__(self, model, X_train, y_train, X_test, y_test):
         self.model = model
         self.X_train = X_train
         self.y_train = y_train
         self.X_test = X_test
         self.y_test = y_test
-        # Store feature count for zero-initialization
-        self.n_features = X_train.shape[1]
 
     def get_parameters(self, config):
-        # If the model is not yet fitted, return zeros
-        if not hasattr(self.model, 'coef_'):
-            # Return zero coefficients and intercept
-            coef = np.zeros((self.n_features, 1))
-            intercept = np.zeros((1, 1))
-        else:
-            coef = self.model.coef_.reshape(-1, 1)
-            intercept = np.array([[self.model.intercept_]])
-        return [coef, intercept]
-
-    def set_parameters(self, parameters):
-        coef = parameters[0].reshape(-1)
-        intercept = parameters[1].item()
-        self.model.coef_ = coef
-        self.model.intercept_ = intercept
+        return self.model.get_parameters()
 
     def fit(self, parameters, config):
-        self.set_parameters(parameters)
-        self.model.fit(self.X_train, self.y_train)
-        return self.get_parameters(config), len(self.X_train), {}
+        self.model.set_parameters(parameters)
+
+        epochs = int(config.get("local_epochs", 25))
+        learning_rate = float(config.get("learning_rate", 0.01))
+
+        self.model.fit(
+            self.X_train,
+            self.y_train,
+            epochs=epochs,
+            learning_rate=learning_rate,
+        )
+
+        loss = self.model.mse(self.X_train, self.y_train)
+        return (
+            self.model.get_parameters(),
+            len(self.X_train),
+            {"train_mse": loss},
+        )
 
     def evaluate(self, parameters, config):
-        self.set_parameters(parameters)
-        y_pred = self.model.predict(self.X_test)
-        mse = mean_squared_error(self.y_test, y_pred)
-        return float(mse), len(self.X_test), {"mse": mse}
+        self.model.set_parameters(parameters)
+        loss = self.model.mse(self.X_test, self.y_test)
+        return loss, len(self.X_test), {"mse": loss}
+
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--client-id", type=int, required=True)
+    args = parser.parse_args()
 
-    # Load data for this client
-    X_train, y_train, X_test, y_test = load_data(args.client_id, num_clients=2)
-    model = LinearRegression()
+    X_train, y_train, X_test, y_test = load_data(args.client_id)
+    model = LinearRegressionModel(n_features=X_train.shape[1])
 
-    # Determine server address: use environment variable if set, otherwise default
     server_address = os.environ.get("FL_SERVER_ADDRESS", "server:8080")
-    root_certificates = Path("certificates/ca.crt").read_bytes()
+    ca_path = Path("certificates/ca.crt")
+    root_certificates = ca_path.read_bytes() if ca_path.exists() else None
 
-
-    # Start Flower client (using the deprecated API for now – it works)
-    fl.client.start_numpy_client(
+    fl.client.start_client(
         server_address=server_address,
-        client=SklearnClient(model, X_train, y_train, X_test, y_test),
+        client=FlowerClient(
+            model,
+            X_train,
+            y_train,
+            X_test,
+            y_test,
+        ).to_client(),
         root_certificates=root_certificates,
-        grpc_max_message_length=1024*1024*1024
+        grpc_max_message_length=1024 * 1024 * 1024,
     )
+
 
 if __name__ == "__main__":
     main()
