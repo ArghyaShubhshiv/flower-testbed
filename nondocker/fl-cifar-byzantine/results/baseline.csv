@@ -1,0 +1,4 @@
+round,loss,accuracy,attack,num_byzantine,attack_scale
+0,4.606234,0.011500,none,0,1.0
+1,4.560662,0.026600,none,0,1.0
+2,2.857985,0.289400,none,0,1.0
